@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data — raw data should be downloaded, not committed
+data/raw/
+data/processed/
+data/interim/
+
+# Model artifacts
+models/titanic/*.pkl
+
+# Logs
+logs/*.log
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Linting / testing cache
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# uv
+.python-version
