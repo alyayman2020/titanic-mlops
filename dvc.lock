@@ -1,0 +1,69 @@
+schema: '2.0'
+stages:
+  training_pipeline:
+    cmd: python trainer.py
+    deps:
+    - path: conf/
+      hash: md5
+      md5: 9542935d5108b604a601be532e736001.dir
+      size: 11601
+      nfiles: 3
+    - path: data/raw/test.csv
+      hash: md5
+      md5: 7533b82eae4b582610cbd68aa636b017
+      size: 28629
+    - path: data/raw/train.csv
+      hash: md5
+      md5: 2309cc5f04782ed9bb6016d9f4e381cf
+      size: 61194
+    - path: src/
+      hash: md5
+      md5: f8e2c9ab2ef2d86da60565b6bc59fb54.dir
+      size: 151618
+      nfiles: 28
+    - path: trainer.py
+      hash: md5
+      md5: e0bacd429bd29f6a0d586edcf6bc5b8d
+      size: 10695
+    outs:
+    - path: data/interim/
+      hash: md5
+      md5: 19db49f74a01d5f6a947caf3cb8f545a.dir
+      size: 62975
+      nfiles: 2
+    - path: data/processed/
+      hash: md5
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
+    - path: models/titanic/
+      hash: md5
+      md5: a4809d1c2e90ba28ef89ff1bcce64e4c.dir
+      size: 23602511
+      nfiles: 22
+  prediction:
+    cmd: python predict.py --input data/raw/test.csv
+    deps:
+    - path: data/raw/test.csv
+      hash: md5
+      md5: 7533b82eae4b582610cbd68aa636b017
+      size: 28629
+    - path: models/titanic/
+      hash: md5
+      md5: a4809d1c2e90ba28ef89ff1bcce64e4c.dir
+      size: 23602511
+      nfiles: 22
+    - path: predict.py
+      hash: md5
+      md5: e9373e58f1fdecd8ba9a76eb1f260f22
+      size: 4964
+    - path: src/
+      hash: md5
+      md5: f8e2c9ab2ef2d86da60565b6bc59fb54.dir
+      size: 151618
+      nfiles: 28
+    outs:
+    - path: reports/titanic/predictions.csv
+      hash: md5
+      md5: 769ec3acd6338c2a53a2540375c69798
+      size: 11477
