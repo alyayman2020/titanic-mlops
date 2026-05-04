@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.env
+.venv/
+venv/
+
+# Data (tracked by DVC, not git)
+data/raw/*.csv
+data/processed/
+data/interim/
+data/external/
+
+# Models (tracked by DVC)
+models/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Hydra outputs
+outputs/
+.hydra/
+
+# Logs
+logs/
+*.log
+
+# Optuna
+optuna_studies/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Reports (generated)
+reports/titanic/*.txt
+reports/titanic/*.csv
+reports/titanic/*.png
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+mlflow.db
+catboost_info/
+
+mlflow.db
+mlflow.db-shm
+mlflow.db-wal
+catboost_info/
+outputs/
+.hydra/
+
+mlflow.db
+mlflow.db-shm
+mlflow.db-wal
+catboost_info/
+outputs/
+.hydra/

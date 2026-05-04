@@ -1,0 +1,32 @@
+# @package _global_
+data:
+  raw_train: "data/raw/train.csv"
+  raw_test:  "data/raw/test.csv"
+  processed_dir: "data/processed"
+  interim_dir:   "data/interim"
+
+  target: "Survived"
+  passenger_id: "PassengerId"
+
+  split:
+    test_size: 0.2
+    random_state: 42
+    stratify: true
+
+  # Columns CatBoost receives raw (no encoding) — light clean only
+  catboost_drop_cols:
+    - "Name"
+    - "Ticket"
+    - "Cabin"
+    - "PassengerId"
+  catboost_cat_features:
+    - "Sex"
+    - "Embarked"
+    - "Pclass"
+
+  # Standard pipeline drop columns
+  drop_cols:
+    - "Name"
+    - "Ticket"
+    - "Cabin"
+    - "PassengerId"

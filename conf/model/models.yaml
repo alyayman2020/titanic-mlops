@@ -1,0 +1,218 @@
+# ══════════════════════════════════════════════════════════════════
+#  Model Configurations — Stage 1 (base) & Stage 2 (Optuna spaces)
+# ══════════════════════════════════════════════════════════════════
+
+logistic_regression:
+  name: logistic_regression
+  display_name: "Logistic Regression"
+  uses_gpu: false
+  needs_scaling: true
+  is_catboost: false
+  base_params:
+    C: 1.0
+    max_iter: 1000
+    solver: "lbfgs"
+    random_state: 42
+  search_space:
+    C:          {type: float, low: 0.001, high: 100.0, log: true}
+    solver:     {type: categorical, choices: ["lbfgs", "saga", "liblinear"]}
+    max_iter:   {type: int, low: 200, high: 2000}
+
+# ──────────────────────────────────────────────────────────────────
+random_forest:
+  name: random_forest
+  display_name: "Random Forest"
+  uses_gpu: false
+  needs_scaling: false
+  is_catboost: false
+  base_params:
+    n_estimators: 200
+    max_depth: 8
+    min_samples_split: 5
+    min_samples_leaf: 2
+    random_state: 42
+  search_space:
+    n_estimators:     {type: int,   low: 100,  high: 600}
+    max_depth:        {type: int,   low: 3,    high: 20}
+    min_samples_split : {type: int,   low: 2,    high: 20}
+    min_samples_leaf: {type: int,   low: 1,    high: 10}
+    max_features:     {type: categorical, choices: ["sqrt", "log2", null]}
+
+# ──────────────────────────────────────────────────────────────────
+xgboost:
+  name: xgboost
+  display_name: "XGBoost"
+  uses_gpu: true                # tree_method=gpu_hist on RTX 4050
+  needs_scaling: false
+  is_catboost: false
+  base_params:
+    n_estimators: 200
+    max_depth: 6
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    random_state: 42
+    eval_metric: "logloss"
+    use_label_encoder: false
+  search_space:
+    n_estimators:     {type: int,   low: 100,  high: 600}
+    max_depth:        {type: int,   low: 3,    high: 12}
+    learning_rate:    {type: float, low: 0.005,high: 0.3,  log: true}
+    subsample:        {type: float, low: 0.5,  high: 1.0}
+    colsample_bytree: {type: float, low: 0.4,  high: 1.0}
+    reg_alpha:        {type: float, low: 1e-8, high: 10.0, log: true}
+    reg_lambda:       {type: float, low: 1e-8, high: 10.0, log: true}
+    min_child_weight: {type: int,   low: 1,    high: 10}
+
+# ──────────────────────────────────────────────────────────────────
+lightgbm:
+  name: lightgbm
+  display_name: "LightGBM"
+  uses_gpu: true                # device=gpu on RTX 4050
+  needs_scaling: false
+  is_catboost: false
+  base_params:
+    n_estimators: 200
+    max_depth: -1
+    learning_rate: 0.1
+    num_leaves: 31
+    subsample: 0.8
+    colsample_bytree: 0.8
+    random_state: 42
+    verbosity: -1
+  search_space:
+    n_estimators:   {type: int,   low: 100,  high: 600}
+    num_leaves:     {type: int,   low: 20,   high: 150}
+    learning_rate:  {type: float, low: 0.005,high: 0.3,  log: true}
+    subsample:      {type: float, low: 0.5,  high: 1.0}
+    colsample_bytree : {type: float,low: 0.4,  high: 1.0}
+    reg_alpha:      {type: float, low: 1e-8, high: 10.0, log: true}
+    reg_lambda:     {type: float, low: 1e-8, high: 10.0, log: true}
+    min_child_samples : {type: int, low: 5,    high: 100}
+
+# ──────────────────────────────────────────────────────────────────
+catboost:
+  name: catboost
+  display_name: "CatBoost"
+  uses_gpu: true                # task_type=GPU on RTX 4050
+  needs_scaling: false
+  is_catboost: true             # receives raw categoricals, no encoding
+  base_params:
+    iterations: 200
+    depth: 6
+    learning_rate: 0.1
+    random_seed: 42
+    verbose: 0
+  search_space:
+    iterations:     {type: int,   low: 100,  high: 600}
+    depth:          {type: int,   low: 4,    high: 10}
+    learning_rate:  {type: float, low: 0.005,high: 0.3,  log: true}
+    l2_leaf_reg:    {type: float, low: 1.0,  high: 10.0}
+    border_count:   {type: int,   low: 32,   high: 255}
+    bagging_temperature : {type: float, low: 0.0, high: 1.0}
+
+# ──────────────────────────────────────────────────────────────────
+adaboost:
+  name: adaboost
+  display_name: "AdaBoost"
+  uses_gpu: false
+  needs_scaling: false
+  is_catboost: false
+  base_params:
+    n_estimators: 100
+    learning_rate: 0.1
+    random_state: 42
+  search_space:
+    n_estimators:  {type: int,   low: 50,   high: 500}
+    learning_rate: {type: float, low: 0.01, high: 2.0, log: true}
+    algorithm:     {type: categorical, choices: ["SAMME", "SAMME.R"]}
+
+# ──────────────────────────────────────────────────────────────────
+knn:
+  name: knn
+  display_name: "K-Nearest Neighbors"
+  uses_gpu: false
+  needs_scaling: true
+  is_catboost: false
+  base_params:
+    n_neighbors: 5
+    weights: "uniform"
+    metric: "minkowski"
+    p: 2
+  search_space:
+    n_neighbors: {type: int, low: 3, high: 30}
+    weights:     {type: categorical, choices: ["uniform", "distance"]}
+    metric:      {type: categorical, choices: ["minkowski", "euclidean", "manhattan"]}
+    p:           {type: int, low: 1, high: 3}
+
+# ──────────────────────────────────────────────────────────────────
+svm:
+  name: svm
+  display_name: "Support Vector Machine"
+  uses_gpu: false
+  needs_scaling: true
+  is_catboost: false
+  base_params:
+    C: 1.0
+    kernel: "rbf"
+    gamma: "scale"
+    probability: true
+    random_state: 42
+  search_space:
+    C:      {type: float, low: 0.01, high: 100.0, log: true}
+    kernel: {type: categorical, choices: ["rbf", "linear", "poly", "sigmoid"]}
+    gamma:  {type: categorical, choices: ["scale", "auto"]}
+
+# ──────────────────────────────────────────────────────────────────
+mlp:
+  name: mlp
+  display_name: "Multi-Layer Perceptron"
+  uses_gpu: false               # sklearn MLP is CPU only
+  needs_scaling: true
+  is_catboost: false
+  base_params:
+    hidden_layer_sizes: [128, 64]
+    activation: "relu"
+    solver: "adam"
+    alpha: 0.001
+    learning_rate_init: 0.001
+    max_iter: 500
+    random_state: 42
+    early_stopping: true
+    validation_fraction: 0.1
+  search_space:
+    hidden_layer_sizes:  {type: categorical, choices: [[64], [128, 64], [256, 128, 64], [128, 64, 32]]}
+    activation:          {type: categorical, choices: ["relu", "tanh"]}
+    alpha:               {type: float, low: 1e-5, high: 0.1, log: true}
+    learning_rate_init:  {type: float, low: 1e-4, high: 0.01, log: true}
+
+# ──────────────────────────────────────────────────────────────────
+tabnet:
+  name: tabnet
+  display_name: "TabNet"
+  uses_gpu: true                # native GPU via PyTorch (RTX 4050)
+  needs_scaling: false
+  is_catboost: false
+  base_params:
+    n_d: 8
+    n_a: 8
+    n_steps: 3
+    gamma: 1.3
+    n_independent: 2
+    n_shared: 2
+    momentum: 0.02
+    mask_type: "sparsemax"
+    optimizer_lr: 0.02
+    max_epochs: 100
+    patience: 20
+    batch_size: 256
+    virtual_batch_size: 128
+    seed: 42
+  search_space:
+    n_d:        {type: int,   low: 8,    high: 64}
+    n_a:        {type: int,   low: 8,    high: 64}
+    n_steps:    {type: int,   low: 3,    high: 10}
+    gamma:      {type: float, low: 1.0,  high: 2.0}
+    momentum:   {type: float, low: 0.01, high: 0.4}
+    optimizer_lr : {type: float,low: 1e-3, high: 0.1, log: true}
+    batch_size: {type: categorical, choices: [128, 256, 512]}

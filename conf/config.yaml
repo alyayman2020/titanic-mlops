@@ -1,0 +1,77 @@
+defaults:
+  - data: titanic
+  - _self_
+
+# ── Pipeline control ──────────────────────────────────────────────
+pipeline:
+  run_stage1: true          # base models with fixed params
+  run_stage2: true          # Optuna hyperparameter tuning
+  run_ensemble: true        # Voting + Stacking (uses tuned models)
+  random_state: 42
+  cv_folds: 5
+  n_jobs: -1
+
+# ── MLflow tracking ───────────────────────────────────────────────
+mlflow:
+  experiment_name: "titanic-survival-classification"
+  tracking_uri: "https://dagshub.com/aly.ayman.2018/titanic-mlops.mlflow"
+  register_best_model: true
+  model_name: "titanic-best-model"
+  log_system_metrics: true      # CPU / memory via psutil
+  log_artifacts: true
+
+# ── Optuna tuning ─────────────────────────────────────────────────
+optuna:
+  n_trials: 30
+  timeout: null                 # seconds per study, null = unlimited
+  direction: "maximize"
+  metric: "roc_auc"             # objective metric for tuning
+  n_jobs: 1                     # Optuna parallelism (1 = sequential)
+  sampler: "TPESampler"
+
+# ── GPU ───────────────────────────────────────────────────────────
+gpu:
+  use_gpu: true                 # enables GPU for XGB/LGBM/CatBoost/TabNet
+  device_id: 0                  # NVIDIA RTX 4050
+
+# ── Models to run ─────────────────────────────────────────────────
+models:
+  stage1:
+    - logistic_regression
+    - random_forest
+    - xgboost
+    - lightgbm
+    - catboost
+    - adaboost
+    - knn
+    - svm
+    - mlp
+    - tabnet
+
+  stage2:
+    - logistic_regression
+    - random_forest
+    - xgboost
+    - lightgbm
+    - catboost
+    - adaboost
+    - knn
+    - svm
+    - mlp
+    - tabnet
+
+  ensemble:
+    voting_members:
+      - random_forest
+      - xgboost
+      - lightgbm
+      - catboost
+      - logistic_regression
+    stacking_members:
+      - random_forest
+      - xgboost
+      - lightgbm
+      - catboost
+      - logistic_regression
+      - svm
+    stacking_meta_learner: logistic_regression

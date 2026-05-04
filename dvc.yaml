@@ -1,0 +1,30 @@
+stages:
+  training_pipeline:
+    cmd: python trainer.py
+    deps:
+      - trainer.py
+      - src/
+      - conf/
+      - data/raw/train.csv
+      - data/raw/test.csv
+    outs:
+      - models/titanic/:
+          cache: true
+      - data/processed/:
+          cache: true
+      - data/interim/:
+          cache: true
+    metrics:
+      - reports/titanic/metrics.json:
+          cache: false
+
+  prediction:
+    cmd: python predict.py --input data/raw/test.csv
+    deps:
+      - predict.py
+      - src/
+      - data/raw/test.csv
+      - models/titanic/
+    outs:
+      - reports/titanic/predictions.csv:
+          cache: false
