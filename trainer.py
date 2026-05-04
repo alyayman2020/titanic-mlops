@@ -100,6 +100,16 @@ def main(cfg: DictConfig) -> None:
         # ── DagsHub remote tracking ───────────────────────────────
         try:
             import dagshub
+            # Fix SSL issues on Windows by disabling verification as fallback
+            import ssl, urllib.request
+            try:
+                ssl._create_default_https_context = ssl._create_unverified_context
+            except Exception:
+                pass
+            os.environ["PYTHONHTTPSVERIFY"] = "0"
+            os.environ["CURL_CA_BUNDLE"] = ""
+            os.environ["REQUESTS_CA_BUNDLE"] = ""
+
             dagshub.auth.add_app_token(token=dagshub_token)
             dagshub.init(
                 repo_owner=dagshub_user,
@@ -107,7 +117,13 @@ def main(cfg: DictConfig) -> None:
                 mlflow=True,
             )
             mlflow_uri = tracking_uri_cfg
-            log.info(f"DagsHub MLflow tracking enabled ✓")
+            # Set S3 env vars for artifact upload to DagsHub storage
+            os.environ["MLFLOW_S3_ENDPOINT_URL"] = (
+                f"https://dagshub.com/{dagshub_user}/{dagshub_repo}.s3"
+            )
+            os.environ["AWS_ACCESS_KEY_ID"]     = dagshub_token
+            os.environ["AWS_SECRET_ACCESS_KEY"] = dagshub_token
+            log.info("DagsHub MLflow tracking + artifact storage enabled ✓")
         except Exception as e:
             log.warning(f"DagsHub init failed ({e}) — falling back to local SQLite")
             db_abs = (orig_cwd / "mlflow.db").resolve()

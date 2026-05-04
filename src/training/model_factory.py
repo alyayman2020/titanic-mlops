@@ -52,6 +52,7 @@ def build_model(
         "use_label_encoder", "eval_metric",      # XGBoost
         "probability",                           # SVM
         "feature_name",                          # LightGBM (Dataset-level, not constructor)
+        "algorithm",                             # AdaBoost (removed in sklearn 1.6+)
         "early_stopping", "validation_fraction", # MLP (set in base_params only)
     }
     params = {k: v for k, v in params.items() if k not in ALWAYS_INJECTED}
@@ -113,7 +114,11 @@ def build_model(
     # ── KNN ───────────────────────────────────────────────────────
     elif name == "knn":
         from sklearn.neighbors import KNeighborsClassifier
-        return KNeighborsClassifier(n_jobs=-1, **params)
+        p = dict(params)
+        # p param only valid for minkowski metric — remove it otherwise
+        if p.get("metric", "minkowski") != "minkowski" and "p" in p:
+            del p["p"]
+        return KNeighborsClassifier(n_jobs=-1, **p)
 
     # ── SVM ───────────────────────────────────────────────────────
     elif name == "svm":
@@ -128,7 +133,15 @@ def build_model(
         # hidden_layer_sizes may come as list from yaml
         if "hidden_layer_sizes" in p and isinstance(p["hidden_layer_sizes"], list):
             p["hidden_layer_sizes"] = tuple(p["hidden_layer_sizes"])
-        return MLPClassifier(random_state=rs, **p)
+        # early_stopping and validation_fraction are in ALWAYS_INJECTED (to avoid
+        # duplicates in tuning), so add them back here explicitly for MLP
+        return MLPClassifier(
+            random_state=rs,
+            early_stopping=True,
+            validation_fraction=0.1,
+            max_iter=500,
+            **p,
+        )
 
     # ── TabNet ────────────────────────────────────────────────────
     elif name == "tabnet":

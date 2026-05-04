@@ -78,28 +78,52 @@ def register_best_model(
     log.info(f"Model    : {model_name}")
     log.info(f"{metric} : {best_score}")
 
-    # ── Locate the pkl artifact ───────────────────────────────────
-    artifacts = client.list_artifacts(best_run_id, path="models")
-    if not artifacts:
-        log.warning("No artifacts in 'models/' folder — skipping registration.")
+    # ── Find the MLflow model artifact (logged with proper flavor) ─
+    # Models are logged as "model_{name}" artifacts in each run
+    all_artifacts = client.list_artifacts(best_run_id)
+    model_artifact = None
+    for art in all_artifacts:
+        if art.path.startswith("model_") and not art.path.endswith(".pkl"):
+            model_artifact = art
+            break
+
+    if model_artifact:
+        # Register the properly-logged MLflow model directly
+        model_uri = f"runs:/{best_run_id}/{model_artifact.path}"
+        log.info(f"Registering MLflow model: {model_artifact.path}")
+    else:
+        # Fallback: look for pkl in models/ folder
+        artifacts = client.list_artifacts(best_run_id, path="models")
+        if not artifacts:
+            log.warning("No model artifacts found — skipping registration.")
+            return ""
+        pkl_artifact = next(
+            (a for a in artifacts if a.path.endswith(".pkl")), artifacts[0]
+        )
+        local_pkl = client.download_artifacts(best_run_id, pkl_artifact.path)
+        log.info(f"Falling back to pkl: {local_pkl}")
+        with mlflow.start_run(run_id=best_run_id):
+            mlflow.pyfunc.log_model(
+                artifact_path="registered_model",
+                python_model=PklModelWrapper(),
+                artifacts={"model_pkl": local_pkl},
+                registered_model_name=model_registry_name,
+            )
+        log.info(f"Registered model '{model_registry_name}' ✓")
+        versions = client.search_model_versions(f"name='{model_registry_name}'")
+        if versions:
+            latest = sorted(versions, key=lambda v: int(v.version))[-1]
+            client.transition_model_version_stage(
+                name=model_registry_name,
+                version=latest.version,
+                stage="Production",
+                archive_existing_versions=True,
+            )
+            log.info(f"Version {latest.version} promoted to Production ✓")
+            return latest.version
         return ""
 
-    pkl_artifact = next(
-        (a for a in artifacts if a.path.endswith(".pkl")), artifacts[0]
-    )
-
-    # Download the pkl to a temp file
-    local_pkl = client.download_artifacts(best_run_id, pkl_artifact.path)
-    log.info(f"Downloaded artifact: {local_pkl}")
-
-    # ── Log as proper MLflow pyfunc model and register ────────────
-    with mlflow.start_run(run_id=best_run_id):
-        mlflow.pyfunc.log_model(
-            artifact_path="registered_model",
-            python_model=PklModelWrapper(),
-            artifacts={"model_pkl": local_pkl},
-            registered_model_name=model_registry_name,
-        )
+    mv = mlflow.register_model(model_uri=model_uri, name=model_registry_name)
 
     log.info(f"Registered model '{model_registry_name}' ✓")
 

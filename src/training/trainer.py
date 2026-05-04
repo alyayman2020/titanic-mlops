@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Any
 
 import mlflow
+import mlflow.catboost
+import mlflow.pyfunc
+import mlflow.sklearn
 import numpy as np
 import optuna
 import pandas as pd
@@ -124,13 +127,124 @@ def _log_system_tags(run):
         mlflow.set_tag(k, str(v))
 
 
-def _save_and_log_model(pipeline_or_obj: Any, model_name: str, cfg: DictConfig):
-    out_dir = Path(cfg.data.get("model_output_dir", "models/titanic"))
+def _get_project_root(cfg: DictConfig) -> Path:
+    """Derive absolute project root from the known-absolute raw_train path."""
+    try:
+        model_dir = cfg.data.get("model_output_dir") or cfg.data["model_output_dir"]
+        if model_dir:
+            # model_output_dir is set → go up 2 levels (models/titanic → project root)
+            return Path(model_dir).parent.parent
+    except Exception:
+        pass
+    # Fallback: data/raw/train.csv → up 3 levels
+    return Path(str(cfg.data.raw_train)).parent.parent.parent
+
+
+def _save_and_log_model(
+    pipeline_or_obj: Any,
+    model_name: str,
+    cfg: DictConfig,
+    stage: str = "stage1",
+    metrics: dict | None = None,
+):
+    """
+    Save model as .pkl locally and log to MLflow with proper naming.
+
+    Naming convention:
+        stage1__logistic_regression.pkl
+        stage2__xgboost_tuned.pkl
+        ensemble__voting_classifier.pkl
+    """
+    project_root = _get_project_root(cfg)
+    out_dir = project_root / "models" / "titanic"
     out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"{model_name}.pkl"
+
+    # ── Consistent file name ───────────────────────────────────────
+    clean_name = model_name.replace(" ", "_").lower()
+    file_name = f"{stage}__{clean_name}.pkl"
+    path = out_dir / file_name
+
     with open(path, "wb") as f:
         pickle.dump(pipeline_or_obj, f)
+    log.info(f"  Saved → {path}")
+
+    # ── Log pkl as raw artifact (always) ──────────────────────────
     mlflow.log_artifact(str(path), artifact_path="models")
+
+    # ── Log as proper MLflow model (shows in Models column) ───────
+    # Determine the underlying estimator type for correct flavor
+    try:
+        obj = pipeline_or_obj
+        # Unwrap dict artifacts (CatBoost, TabNet)
+        if isinstance(obj, dict):
+            inner = obj.get("model", obj)
+        else:
+            inner = obj
+
+        model_artifact_path = f"model_{clean_name}"
+
+        # Check model type and use appropriate MLflow flavor
+        type_name = type(inner).__name__.lower()
+
+        if "catboost" in type_name:
+            mlflow.catboost.log_model(inner, artifact_path=model_artifact_path)
+
+        elif "tabnet" in type_name or "tabmodel" in type_name:
+            # TabNet → log as pyfunc with pkl
+            class _TabNetWrapper(mlflow.pyfunc.PythonModel):
+                def load_context(self, ctx):
+                    import pickle
+                    with open(ctx.artifacts["pkl"], "rb") as f:
+                        self.artifact = pickle.load(f)
+                def predict(self, ctx, data):
+                    import numpy as np
+                    m = self.artifact.get("model") if isinstance(self.artifact, dict) else self.artifact
+                    p = self.artifact.get("preprocessor") if isinstance(self.artifact, dict) else None
+                    X = p.transform(data).astype(np.float32) if p else data.values.astype(np.float32)
+                    return m.predict(X)
+            mlflow.pyfunc.log_model(
+                artifact_path=model_artifact_path,
+                python_model=_TabNetWrapper(),
+                artifacts={"pkl": str(path)},
+            )
+
+        elif hasattr(inner, "predict"):
+            # Standard sklearn-compatible model (Pipeline, RF, XGB, LGBM, etc.)
+            actual = inner if not isinstance(pipeline_or_obj, dict) else pipeline_or_obj
+            # For dict artifacts wrap in pyfunc
+            if isinstance(pipeline_or_obj, dict):
+                class _DictWrapper(mlflow.pyfunc.PythonModel):
+                    def load_context(self, ctx):
+                        import pickle
+                        with open(ctx.artifacts["pkl"], "rb") as f:
+                            self.artifact = pickle.load(f)
+                    def predict(self, ctx, data):
+                        m = self.artifact.get("model") if isinstance(self.artifact, dict) else self.artifact
+                        p = self.artifact.get("preprocessor") if isinstance(self.artifact, dict) else None
+                        X = p.transform(data) if p else data
+                        return m.predict(X)
+                mlflow.pyfunc.log_model(
+                    artifact_path=model_artifact_path,
+                    python_model=_DictWrapper(),
+                    artifacts={"pkl": str(path)},
+                )
+            else:
+                mlflow.sklearn.log_model(
+                    sk_model=pipeline_or_obj,
+                    artifact_path=model_artifact_path,
+                    registered_model_name=None,  # register separately after best selection
+                )
+        log.info(f"  MLflow model logged as '{model_artifact_path}' ✓")
+    except Exception as e:
+        log.warning(f"  MLflow model logging failed ({e}) — pkl artifact still saved")
+
+    # ── Metadata tags ─────────────────────────────────────────────
+    mlflow.set_tag("artifact_name", file_name)
+    mlflow.set_tag("artifact_stage", stage)
+    mlflow.set_tag("artifact_model", clean_name)
+    if metrics:
+        mlflow.log_metrics({f"saved_{k}": v for k, v in metrics.items()})
+
     return path
 
 
@@ -202,7 +316,7 @@ def run_stage1(
                 y_pred = model.predict(X_te_cb)
                 y_proba = model.predict_proba(X_te_cb)[:, 1]
                 artifact = {"model": model, "preprocessor": cb_prep, "cat_indices": cat_indices}
-                _save_and_log_model(artifact, model_name, cfg)
+                _save_and_log_model(artifact, model_name, cfg, stage="stage1")
 
             # ── TabNet special path ──────────────────────────────
             elif model_name == "tabnet":
@@ -224,7 +338,7 @@ def run_stage1(
                 y_pred = model.predict(X_te_np)
                 y_proba = model.predict_proba(X_te_np)[:, 1]
                 artifact = {"model": model, "preprocessor": prep_pipeline}
-                _save_and_log_model(artifact, model_name, cfg)
+                _save_and_log_model(artifact, model_name, cfg, stage="stage1")
 
             # ── Standard sklearn Pipeline path ───────────────────
             else:
@@ -235,11 +349,12 @@ def run_stage1(
                 y_pred = pipeline.predict(X_test)
                 y_proba = (pipeline.predict_proba(X_test)[:, 1]
                            if hasattr(pipeline, "predict_proba") else None)
-                _save_and_log_model(pipeline, model_name, cfg)
+                _save_and_log_model(pipeline, model_name, cfg, stage="stage1")
 
             # ── Common: test metrics + report ────────────────────
             report = get_classification_report(y_test, y_pred)
-            report_dir = str(Path(cfg.data.get("model_output_dir", "models/titanic")).parent.parent / "reports" / "titanic")
+            project_root = Path(str(cfg.data.raw_train)).parent.parent.parent
+            report_dir = str(project_root / "reports" / "titanic")
             _log_test_metrics(y_test, y_pred, y_proba, report, report_dir=report_dir)
 
             elapsed = timer.elapsed()
@@ -448,7 +563,7 @@ def run_stage2(
                 y_proba = model.predict_proba(X_te_cb)[:, 1]
                 artifact = {"model": model, "preprocessor": cb_prep,
                             "cat_indices": cat_indices}
-                _save_and_log_model(artifact, f"{model_name}_tuned", cfg)
+                _save_and_log_model(artifact, f"{model_name}_tuned", cfg, stage="stage2")
                 best_results[model_name] = {
                     "best_params": best_params,
                     "best_score": best_score,
@@ -472,7 +587,7 @@ def run_stage2(
                 y_pred = model.predict(X_te_np)
                 y_proba = model.predict_proba(X_te_np)[:, 1]
                 artifact = {"model": model, "preprocessor": prep_pipeline}
-                _save_and_log_model(artifact, f"{model_name}_tuned", cfg)
+                _save_and_log_model(artifact, f"{model_name}_tuned", cfg, stage="stage2")
                 best_results[model_name] = {
                     "best_params": best_params, "best_score": best_score,
                     "artifact": artifact, "type": "tabnet",
@@ -485,7 +600,7 @@ def run_stage2(
                 y_pred = pipeline.predict(X_test)
                 y_proba = (pipeline.predict_proba(X_test)[:, 1]
                            if hasattr(pipeline, "predict_proba") else None)
-                _save_and_log_model(pipeline, f"{model_name}_tuned", cfg)
+                _save_and_log_model(pipeline, f"{model_name}_tuned", cfg, stage="stage2")
                 best_results[model_name] = {
                     "best_params": best_params, "best_score": best_score,
                     "pipeline": pipeline, "type": "sklearn",
@@ -493,7 +608,8 @@ def run_stage2(
 
             # ── Log test metrics ──────────────────────────────────
             report = get_classification_report(y_test, y_pred)
-            report_dir = str(Path(cfg.data.get("model_output_dir", "models/titanic")).parent.parent / "reports" / "titanic")
+            project_root = Path(str(cfg.data.raw_train)).parent.parent.parent
+            report_dir = str(project_root / "reports" / "titanic")
             _log_test_metrics(y_test, y_pred, y_proba, report, report_dir=report_dir)
             elapsed = timer.elapsed()
             mlflow.log_metric("tuning_time_sec", elapsed)

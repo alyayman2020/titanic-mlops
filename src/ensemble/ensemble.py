@@ -110,12 +110,12 @@ def run_ensemble(
             y_proba = voting_clf.predict_proba(X_test)[:, 1]
 
             report = get_classification_report(y_test, y_pred)
-            report_dir = str(Path(cfg.data.get("model_output_dir", "models/titanic")).parent.parent / "reports" / "titanic")
+            report_dir = str(Path(str(cfg.data.raw_train)).parent.parent.parent / "reports" / "titanic")
             _log_test_metrics(y_test, y_pred, y_proba, report, report_dir=report_dir)
 
             elapsed = timer.elapsed()
             mlflow.log_metric("training_time_sec", elapsed)
-            _save_and_log_model(voting_clf, "voting_classifier", cfg)
+            _save_and_log_model(voting_clf, "voting_classifier", cfg, stage="ensemble")
 
             test_auc = compute_metrics(y_test, y_pred, y_proba).get("roc_auc", 0.0)
             ensemble_results["voting"] = test_auc
@@ -163,12 +163,12 @@ def run_ensemble(
             y_proba = stacking_clf.predict_proba(X_test)[:, 1]
 
             report = get_classification_report(y_test, y_pred)
-            report_dir = str(Path(cfg.data.get("model_output_dir", "models/titanic")).parent.parent / "reports" / "titanic")
+            report_dir = str(Path(str(cfg.data.raw_train)).parent.parent.parent / "reports" / "titanic")
             _log_test_metrics(y_test, y_pred, y_proba, report, report_dir=report_dir)
 
             elapsed = timer.elapsed()
             mlflow.log_metric("training_time_sec", elapsed)
-            _save_and_log_model(stacking_clf, "stacking_classifier", cfg)
+            _save_and_log_model(stacking_clf, "stacking_classifier", cfg, stage="ensemble")
 
             test_auc = compute_metrics(y_test, y_pred, y_proba).get("roc_auc", 0.0)
             ensemble_results["stacking"] = test_auc

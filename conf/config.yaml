@@ -22,7 +22,7 @@ mlflow:
 
 # ── Optuna tuning ─────────────────────────────────────────────────
 optuna:
-  n_trials: 30
+  n_trials: 5
   timeout: null                 # seconds per study, null = unlimited
   direction: "maximize"
   metric: "roc_auc"             # objective metric for tuning
