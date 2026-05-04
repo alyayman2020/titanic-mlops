@@ -14,9 +14,6 @@ stages:
           cache: true
       - data/interim/:
           cache: true
-    metrics:
-      - reports/titanic/metrics.json:
-          cache: false
 
   prediction:
     cmd: python predict.py --input data/raw/test.csv
