@@ -39,21 +39,21 @@ This project implements a **complete MLOps lifecycle** for Titanic survival clas
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         Data Layer                                   │
+│                         Data Layer                                  │
 │   Raw CSV → DVC versioned → DagsHub S3 remote storage               │
 └───────────────────────────────┬─────────────────────────────────────┘
                                 │
 ┌───────────────────────────────▼─────────────────────────────────────┐
-│                      Training Pipeline                               │
-│                                                                      │
-│   Hydra Config Management                                            │
-│        │                                                             │
+│                      Training Pipeline                              │
+│                                                                     │
+│   Hydra Config Management                                           │
+│        │                                                            │
 │        ├── Stage 1: 10 base models (fixed params)                   │
-│        │       └── MLflow logs metrics, params, model artifacts      │
-│        │                                                             │
+│        │       └── MLflow logs metrics, params, model artifacts     │
+│        │                                                            │
 │        ├── Stage 2: Optuna HPO (5 trials × 10 models, TPE)          │
-│        │       └── Nested MLflow runs per trial                      │
-│        │                                                             │
+│        │       └── Nested MLflow runs per trial                     │
+│        │                                                            │
 │        └── Stage 3: Ensemble (Voting + Stacking)                    │
 │                └── Best model → DagsHub Model Registry / Production │
 └───────────────────────────────┬─────────────────────────────────────┘
@@ -61,19 +61,19 @@ This project implements a **complete MLOps lifecycle** for Titanic survival clas
               ┌─────────────────┴─────────────────┐
               │                                   │
 ┌─────────────▼────────────┐      ┌──────────────▼──────────────────┐
-│   Online Serving (API)   │      │   Batch Serving (Prefect)        │
-│                          │      │                                  │
-│  FastAPI Server          │      │  MotherDuck (test_data table)    │
-│   POST /predict          │      │        │                         │
-│   GET  /health           │      │        ▼                         │
-│   GET  /model/info       │      │  Extract → Transform → Predict   │
-│                          │      │        │                         │
-│  Loads from DagsHub      │      │        ▼                         │
-│  Production registry     │      │  Save → MotherDuck               │
-│                          │      │  (predictions table)             │
-│  Docker → DockerHub      │      │                                  │
-│  alyayman25/titanic-api  │      │  Monitored via Prefect Cloud     │
-└──────────────────────────┘      └──────────────────────────────────┘
+│   Online Serving (API)   │      │   Batch Serving (Prefect)       │
+│                          │      │                                 │
+│  FastAPI Server          │      │  MotherDuck (test_data table)   │
+│   POST /predict          │      │        │                        │
+│   GET  /health           │      │        ▼                        │
+│   GET  /model/info       │      │  Extract → Transform → Predict  │
+│                          │      │        │                        │
+│  Loads from DagsHub      │      │        ▼                        │
+│  Production registry     │      │  Save → MotherDuck              │
+│                          │      │  (predictions table)            │
+│  Docker → DockerHub      │      │                                 │
+│  alyayman25/titanic-api  │      │  Monitored via Prefect Cloud    │
+└──────────────────────────┘      └─────────────────────────────────┘
 ```
 
 ---
