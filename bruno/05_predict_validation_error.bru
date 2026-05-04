@@ -1,0 +1,27 @@
+meta {
+  name: Predict - Validation Error Test
+  type: http
+  seq: 5
+}
+
+post {
+  url: http://localhost:8000/predict
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "passengers": [
+      {
+        "Pclass": 5,
+        "Sex": "alien",
+        "Age": -10,
+        "SibSp": 0,
+        "Parch": 0,
+        "Fare": 50.0,
+        "Embarked": "Z"
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Predict Single Passenger
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:8000/predict
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "passengers": [
+      {
+        "Pclass": 1,
+        "Sex": "female",
+        "Age": 28.0,
+        "SibSp": 0,
+        "Parch": 0,
+        "Fare": 100.0,
+        "Embarked": "S"
+      }
+    ]
+  }
+}

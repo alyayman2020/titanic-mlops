@@ -1,0 +1,45 @@
+# ── Titanic MLOps — FastAPI Inference Server (Slim) ──────────────────────────
+# Uses plain pip + minimal requirements — NO training deps, NO PyTorch
+# Image size target: ~800MB (vs 10GB+ with full uv.lock)
+
+FROM python:3.11-slim
+
+# ── Environment ───────────────────────────────────────────────────────────────
+ENV DAGSHUB_USERNAME="aly.ayman.2018"
+ENV DAGSHUB_REPO="titanic-mlops"
+ENV MODEL_NAME="titanic-best-model"
+ENV MODEL_VERSION="Production"
+ENV PORT=8000
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# ── System dependencies ───────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ && rm -rf /var/lib/apt/lists/*
+
+# ── Working directory ─────────────────────────────────────────────────────────
+WORKDIR /app
+
+# ── Install Python dependencies (API-only ~800MB) ─────────────────────────────
+COPY requirements-api.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements-api.txt
+
+# ── Copy only what the API needs ──────────────────────────────────────────────
+COPY api/ ./api/
+COPY src/preprocessing/ ./src/preprocessing/
+COPY src/__init__.py ./src/__init__.py
+COPY server.py .
+
+# ── Create model dir ──────────────────────────────────────────────────────────
+RUN mkdir -p models/titanic reports/titanic
+
+# ── Expose port ───────────────────────────────────────────────────────────────
+EXPOSE 8000
+
+# ── Health check ──────────────────────────────────────────────────────────────
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+# ── Start server ──────────────────────────────────────────────────────────────
+CMD uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 1 --log-level info
