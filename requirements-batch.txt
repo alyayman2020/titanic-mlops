@@ -1,0 +1,25 @@
+# Batch pipeline dependencies — let pip resolve versions
+# Install: pip install -r requirements-batch.txt
+
+# ── Orchestration ─────────────────────────────────────────────────
+prefect>=3.4.0
+
+# ── Database ──────────────────────────────────────────────────────
+duckdb>=1.1.0
+
+# ── ML inference ──────────────────────────────────────────────────
+scikit-learn>=1.4.0
+numpy>=1.26.0
+pandas>=2.1.0
+joblib>=1.3.0
+xgboost>=2.0.0
+lightgbm>=4.3.0
+catboost>=1.2.0
+
+# ── MLflow + DagsHub ──────────────────────────────────────────────
+mlflow>=2.12.0
+dagshub>=0.3.0
+python-dotenv>=1.0.0
+
+# ── Utils ─────────────────────────────────────────────────────────
+loguru>=0.7.0
